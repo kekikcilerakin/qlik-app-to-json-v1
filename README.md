@@ -6,4 +6,4 @@ This extension allows you to export multiple apps as JSON format.
 ## How to Install
 Import the zip file from /qmc/extensions
 
-Note: Only works on Windows.
+Note: Only supported on Windows.

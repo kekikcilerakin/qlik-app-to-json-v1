@@ -3,7 +3,7 @@ var config = {
 	host: window.location.hostname,
 	prefix: prefix,
 	port: window.location.port,
-	isSecure: window.location.protocol === "https:"
+	isSecure: window.location.protocol === "https:",
 };
 require.config({
 	baseUrl: (config.isSecure ? "https://" : "http://") + config.host + (config.port ? ":" + config.port : "") + config.prefix + "resources",
@@ -20,7 +20,6 @@ var main = {};
 require(['js/qlik'], function (qlik) {
 	require(['jquery', 'qsocks', 'jszip', 'serializeApp', 'dataTables'], function ($, qsocks, JSZip) {
 		var getUrlParameter = function getUrlParameter(sParam) {
-
 			var sPageURL = decodeURIComponent(window.location.search.substring(1)),
 				sURLVariables = sPageURL.split('&'),
 				sParameterName,
@@ -39,7 +38,7 @@ require(['js/qlik'], function (qlik) {
 
 		$('#backup').prop('disabled', true);
 		$('#serialize').prop('disabled', true);
-		$('#loadingImg').css('display', 'inline-block');
+		$('#loadingImg').css('display', 'none');
 
 		const selectedAppNames = [];
 		var checkedAppIds = [];
@@ -48,7 +47,8 @@ require(['js/qlik'], function (qlik) {
 			host: window.location.hostname,
 			isSecure: window.location.protocol === "https:",
 			appIds: [],
-			port: window.location.port
+			port: window.location.port,
+			appname: ""
 		};
 
 		var qSocksConnect = function () {
@@ -63,6 +63,7 @@ require(['js/qlik'], function (qlik) {
 
 			if (main.global) {
 				main.global.connection.close();
+				main.global.connection.ws.close();
 				main = {};
 
 				return qsocks.Connect(appConfig).then(function (global) {
@@ -102,10 +103,12 @@ require(['js/qlik'], function (qlik) {
 		$("#backup").on("click", function () {
 			$('#openDoc').css('visibility', 'hidden');
 			$('#loadingImg').css('display', 'inline-block');
+			$('#progressBar').css('width', '0%').text('0% (0/' + checkedAppIds.length + ')');
 
 			try {
 				main.global.connection.ws.close();
-			} catch (ex) {
+			} catch (err) {
+				console.log("Err:", err);
 			}
 
 			//#region convertToJSON
@@ -129,6 +132,9 @@ require(['js/qlik'], function (qlik) {
 			//#region processAppIds
 			async function processAppIds() {
 				const zip = new JSZip();
+				const totalApps = checkedAppIds.length;
+				let completedApps = 0;
+
 				for (const element of checkedAppIds) {
 					try {
 						await qSocksConnect();
@@ -155,6 +161,10 @@ require(['js/qlik'], function (qlik) {
 
 						await convertToJSON(element.appname, zip);
 
+						completedApps++;
+						const progressPercent = Math.round((completedApps / totalApps) * 100);
+						$('#progressBar').css('width', progressPercent + '%').text(progressPercent + '% (' + completedApps + '/' + totalApps + ')');
+
 						$('#json').prop('disabled', false);
 						$('#loadingImg').css('display', 'none');
 						$('#openDoc').css('visibility', 'visible');
@@ -168,14 +178,14 @@ require(['js/qlik'], function (qlik) {
 								$('#openDoc').append(', ');
 							}
 						});
+
 					} catch (error) {
 						console.error("Error:", error);
+						continue;  // Hata durumunda devam et
 					}
 				}
-
 				//#region download as zip
 				zip.generateAsync({ type: "blob" }).then(function (content) {
-					// Create a download link for the zip file
 					const zipBlob = new Blob([content], { type: "application/zip" });
 					const zipUrl = window.URL.createObjectURL(zipBlob);
 					const a = document.createElement('a');
@@ -203,16 +213,16 @@ require(['js/qlik'], function (qlik) {
 
 				var newRow = document.createElement("tr");
 
-				// First <td> element with a checkbox
+				// İlk <td> elementi (checkbox ile)
 				var checkboxCell = document.createElement("td");
 				var checkbox = document.createElement("input");
 				checkbox.type = "checkbox";
 				checkbox.setAttribute("appId", docList[i].qDocId);
-				checkbox.setAttribute("appName", docList[i].qDocName)
+				checkbox.setAttribute("appName", docList[i].qDocName);
 				checkboxCell.appendChild(checkbox);
 				newRow.appendChild(checkboxCell);
 
-				// Second <td> element with appId and content
+				// İkinci <td> elementi (app adı ile)
 				var appNameCell = document.createElement("td");
 				appNameCell.setAttribute("appId", docList[i].qDocId);
 				appNameCell.textContent = docList[i].qDocName;
@@ -222,37 +232,42 @@ require(['js/qlik'], function (qlik) {
 			}
 			$('#loadingImg').css('display', 'none');
 			$('#backup').prop('disabled', true);
-		})
+		});
 		//#endregion
 
 		//#region handle checkbox
 		$(document).ready(function () {
+			$('#selectAll').change(function () {
+				$('input[type="checkbox"]').not(this).prop('checked', this.checked);
+				updateCheckedAppIds();
+			});
+
 			$(document).on('change', 'input[type="checkbox"]', function () {
-				var appid = $(this).attr('appid');
-				var appname = $(this).attr('appname');
-
-				if (this.checked) {
-					checkedAppIds.push({ appid: appid, appname: appname });
-				} else {
-					var index = checkedAppIds.findIndex(function (app) {
-						return app.appid === appid;
-					});
-
-					if (index !== -1) {
-						checkedAppIds.splice(index, 1);
-					}
-				}
-				if (checkedAppIds.length > 0)
-				{
-					$('#backup').prop('disabled', false);
-				}
-				else
-				{
-					$('#backup').prop('disabled', true);
+				if ($(this).attr('id') !== 'selectAll') {
+					updateCheckedAppIds();
 				}
 			});
+
+			function updateCheckedAppIds() {
+				checkedAppIds = [];
+				$('input[type="checkbox"]:checked').not('#selectAll').each(function () {
+					var appid = $(this).attr('appid');
+					var appname = $(this).attr('appname');
+					checkedAppIds.push({ appid: appid, appname: appname });
+				});
+
+				$('#backup').prop('disabled', checkedAppIds.length === 0);
+
+				// "Hepsini Seç" checkbox'unu güncelle
+				$('#selectAll').prop('checked',
+					$('input[type="checkbox"]').not('#selectAll').length === checkedAppIds.length);
+
+				// Progress bar'ı sıfırla ve toplam uygulama sayısını güncelle
+				$('#progressBar').css('width', '0%').text('0% (0/' + checkedAppIds.length + ')');
+			}
 		});
 		//#endregion
 
-	})
+	});
 });
+

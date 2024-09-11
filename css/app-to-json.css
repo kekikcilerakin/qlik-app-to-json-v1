@@ -13,20 +13,14 @@ isindex {
 }
 
 .main {
-  margin: auto;
-  width: 50%;
-  text-align: center;
-  padding: 2vh;
-}
-
-#backup {
-  margin-left: 1vh;
+  margin-left: 10px;
+  margin-top: 10px;
 }
 
 table {
   border-collapse: collapse;
-  margin: auto;
   width: 50%;
+  margin: auto;
 }
 
 th,

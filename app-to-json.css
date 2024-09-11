@@ -4,7 +4,8 @@
 	margin: 0 45px 45px 0;
 }
 
-.qvplaceholder, .qvobject {
+.qvplaceholder,
+.qvobject {
 	flex: 1 1 auto;
 	height: 300px;
 	min-width: 400px;
