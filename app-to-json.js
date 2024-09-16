@@ -137,6 +137,8 @@ require(['js/qlik'], function (qlik) {
 
 				for (const element of checkedAppIds) {
 					try {
+						appConfig.appname = element.appid;
+						
 						await qSocksConnect();
 						const app = await main.global.openDoc(element.appid);
 						main.app = app;
