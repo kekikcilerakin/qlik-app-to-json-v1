@@ -134,28 +134,28 @@ require(['js/qlik'], function (qlik) {
 				const zip = new JSZip();
 				const totalApps = checkedAppIds.length;
 				let completedApps = 0;
-				const appNameCount = {};  // To track occurrences of app names
-			
+				const appNameCount = {};
+
 				for (const element of checkedAppIds) {
 					try {
 						let appName = element.appname;
-			
-						// Check if appName already exists and increment the counter
+
+						// Check if appName already exists
 						if (appNameCount[appName]) {
 							appNameCount[appName]++;
 							appName += ` (${appNameCount[appName]})`;
 						} else {
 							appNameCount[appName] = 1;
 						}
-			
+
 						appConfig.appname = element.appid;
-						
+
 						await qSocksConnect();
 						const app = await main.global.openDoc(element.appid);
 						main.app = app;
-			
+
 						const appInfos = await main.app.getAllInfos();
-			
+
 						const connections = await main.app.getConnections();
 						for (const connection of connections) {
 							appInfos.qInfos.push({
@@ -163,7 +163,7 @@ require(['js/qlik'], function (qlik) {
 								qType: connection.qType
 							});
 						}
-			
+
 						const variables = await getVariables(main.app);
 						for (const variable of variables) {
 							appInfos.qInfos.push({
@@ -171,33 +171,34 @@ require(['js/qlik'], function (qlik) {
 								qType: variable.qInfo.qType
 							});
 						}
-			
+
 						await convertToJSON(appName, zip);
-			
+
 						completedApps++;
 						const progressPercent = Math.round((completedApps / totalApps) * 100);
 						$('#progressBar').css('width', progressPercent + '%').text(progressPercent + '% (' + completedApps + '/' + totalApps + ')');
-			
+						console.log(progressPercent + '% (' + completedApps + '/' + totalApps + ')' + ' - ' + appName);
+
 						$('#json').prop('disabled', false);
 						$('#loadingImg').css('display', 'none');
 						$('#openDoc').css('visibility', 'visible');
 						$('#serialize').prop('disabled', false);
-			
+
 						$('#openDoc').text("");
 						selectedAppNames.forEach(function (appName, index) {
 							$('#openDoc').append(appName);
-			
+
 							if (index < selectedAppNames.length - 1) {
 								$('#openDoc').append(', ');
 							}
 						});
-			
+
 					} catch (error) {
 						console.error("Error:", error);
 						continue;  // Hata durumunda devam et
 					}
 				}
-			
+
 				//#region download as zip
 				zip.generateAsync({ type: "blob" }).then(function (content) {
 					const zipBlob = new Blob([content], { type: "application/zip" });
@@ -222,7 +223,10 @@ require(['js/qlik'], function (qlik) {
 		qSocksConnect().then(function () {
 			return main.global.getDocList()
 		}).then(function (docList) {
+
 			for (var i = 0; i < docList.length; i++) {
+				if (docList[i].qMeta.published === false) continue;
+
 				var table = document.getElementById("docList");
 
 				var newRow = document.createElement("tr");
@@ -243,6 +247,8 @@ require(['js/qlik'], function (qlik) {
 				newRow.appendChild(appNameCell);
 
 				table.appendChild(newRow);
+
+
 			}
 			$('#loadingImg').css('display', 'none');
 			$('#backup').prop('disabled', true);
