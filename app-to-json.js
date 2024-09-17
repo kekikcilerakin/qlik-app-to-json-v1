@@ -129,74 +129,84 @@ require(['js/qlik'], function (qlik) {
 			}
 			//#endregion
 
-			//#region processAppIds
-			async function processAppIds() {
+			//#region processAppIds with batching
+			async function processAppIds(batchSize = 10) {
 				const zip = new JSZip();
 				const totalApps = checkedAppIds.length;
 				let completedApps = 0;
 				const appNameCount = {};
 
-				for (const element of checkedAppIds) {
-					try {
-						let appName = element.appname;
+				for (let i = 0; i < checkedAppIds.length; i += batchSize) {
+					const batch = checkedAppIds.slice(i, i + batchSize);
 
-						// Check if appName already exists
-						if (appNameCount[appName]) {
-							appNameCount[appName]++;
-							appName += ` (${appNameCount[appName]})`;
-						} else {
-							appNameCount[appName] = 1;
-						}
+					for (const element of batch) {
+						try {
+							let appName = element.appname;
 
-						appConfig.appname = element.appid;
-
-						await qSocksConnect();
-						const app = await main.global.openDoc(element.appid);
-						main.app = app;
-
-						const appInfos = await main.app.getAllInfos();
-
-						const connections = await main.app.getConnections();
-						for (const connection of connections) {
-							appInfos.qInfos.push({
-								qId: connection.qId,
-								qType: connection.qType
-							});
-						}
-
-						const variables = await getVariables(main.app);
-						for (const variable of variables) {
-							appInfos.qInfos.push({
-								qId: variable.qInfo.qId,
-								qType: variable.qInfo.qType
-							});
-						}
-
-						await convertToJSON(appName, zip);
-
-						completedApps++;
-						const progressPercent = Math.round((completedApps / totalApps) * 100);
-						$('#progressBar').css('width', progressPercent + '%').text(progressPercent + '% (' + completedApps + '/' + totalApps + ')');
-						console.log(progressPercent + '% (' + completedApps + '/' + totalApps + ')' + ' - ' + appName);
-
-						$('#json').prop('disabled', false);
-						$('#loadingImg').css('display', 'none');
-						$('#openDoc').css('visibility', 'visible');
-						$('#serialize').prop('disabled', false);
-
-						$('#openDoc').text("");
-						selectedAppNames.forEach(function (appName, index) {
-							$('#openDoc').append(appName);
-
-							if (index < selectedAppNames.length - 1) {
-								$('#openDoc').append(', ');
+							// Check if appName already exists
+							if (appNameCount[appName]) {
+								appNameCount[appName]++;
+								appName += ` (${appNameCount[appName]})`;
+							} else {
+								appNameCount[appName] = 1;
 							}
-						});
 
-					} catch (error) {
-						console.error("Error:", error);
-						continue;  // Hata durumunda devam et
+							appConfig.appname = element.appid;
+
+							await qSocksConnect();
+							const app = await main.global.openDoc(element.appid);
+							main.app = app;
+
+							const appInfos = await main.app.getAllInfos();
+
+							const connections = await main.app.getConnections();
+							for (const connection of connections) {
+								appInfos.qInfos.push({
+									qId: connection.qId,
+									qType: connection.qType
+								});
+							}
+
+							const variables = await getVariables(main.app);
+							for (const variable of variables) {
+								appInfos.qInfos.push({
+									qId: variable.qInfo.qId,
+									qType: variable.qInfo.qType
+								});
+							}
+
+							await convertToJSON(appName, zip);
+
+							completedApps++;
+							const progressPercent = Math.round((completedApps / totalApps) * 100);
+							$('#progressBar').css('width', progressPercent + '%').text(progressPercent + '% (' + completedApps + '/' + totalApps + ')');
+							console.log(progressPercent + '% (' + completedApps + '/' + totalApps + ')' + ' - ' + appName);
+
+							$('#json').prop('disabled', false);
+							$('#loadingImg').css('display', 'none');
+							$('#openDoc').css('visibility', 'visible');
+							$('#serialize').prop('disabled', false);
+
+							$('#openDoc').text("");
+							selectedAppNames.forEach(function (appName, index) {
+								$('#openDoc').append(appName);
+
+								if (index < selectedAppNames.length - 1) {
+									$('#openDoc').append(', ');
+								}
+							});
+
+						} catch (error) {
+							console.error("Error:", error);
+							continue;
+						}
+
+						// clean up memory after each app
+						main.app = null;
+						await new Promise(resolve => setTimeout(resolve, 100));
 					}
+					
+					await new Promise(resolve => setTimeout(resolve, 500));
 				}
 
 				//#region download as zip
@@ -213,6 +223,7 @@ require(['js/qlik'], function (qlik) {
 				});
 				//#endregion
 			}
+
 			processAppIds();
 			//#endregion
 
