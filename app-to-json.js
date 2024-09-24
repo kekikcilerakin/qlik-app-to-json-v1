@@ -205,7 +205,7 @@ require(['js/qlik'], function (qlik) {
 						main.app = null;
 						await new Promise(resolve => setTimeout(resolve, 100));
 					}
-					
+
 					await new Promise(resolve => setTimeout(resolve, 500));
 				}
 
@@ -263,7 +263,19 @@ require(['js/qlik'], function (qlik) {
 			}
 			$('#loadingImg').css('display', 'none');
 			$('#backup').prop('disabled', true);
-		});
+		}).then(function () {
+			function autoBackupAllApps() {
+				$('#selectAll').prop('checked', true).trigger('change');
+				$('#backup').trigger('click');
+			}
+
+			let urlParams = new URLSearchParams(window.location.search);
+
+			if (urlParams.get('auto') === 'true') {
+				console.log('start auto backup');
+				autoBackupAllApps();
+			  }
+		})
 		//#endregion
 
 		//#region handle checkbox
